@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nim Oyunu</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --primary-gradient: linear-gradient(-45deg, #667eea, #764ba2, #6B8DD6, #8E37D7);
+            --card-bg: rgba(255, 255, 255, 0.96);
+            --stone-color: #ff9f43;
+            --stone-selected: #ee5253;
+            --text-color: #2c3e50;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--primary-gradient);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* OYUN KARTI */
+        .game-card {
+            background: var(--card-bg);
+            width: 90%;
+            max-width: 850px;
+            border-radius: 25px;
+            padding: 35px 45px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 { font-size: 2.5rem; margin-bottom: 5px; color: #333; letter-spacing: -1px; }
+        p.subtitle { color: #7f8c8d; margin-top: 0; margin-bottom: 25px; font-weight: 500; font-size: 0.95rem; }
+
+        /* KONTROLLER */
+        .controls-area {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            align-items: flex-end;
+        }
+
+        .control-group { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+        .control-label { font-size: 0.7rem; color: #7f8c8d; font-weight: 700; text-transform: uppercase; margin-left: 5px; }
+
+        select, button, input {
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 2px solid #e1e1e1;
+            background: #fff;
+            font-family: inherit;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s;
+            height: 45px;
+            box-sizing: border-box;
+        }
+        
+        select:focus, input:focus { border-color: #764ba2; }
+
+        button.btn-primary {
+            background: #764ba2;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.3);
+            padding: 0 25px;
+        }
+
+        button.btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(118, 75, 162, 0.4);
+            background: #667eea;
+        }
+
+        /* OYUN ALANI */
+        #game-board {
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 20px;
+            background: rgba(248, 249, 250, 0.7);
+            border-radius: 18px;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .heap-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 15px;
+            border-radius: 50px;
+            transition: background 0.3s;
+        }
+        .heap-row.active-row { background: rgba(118, 75, 162, 0.08); }
+
+        /* TAŞLAR */
+        .stone {
+            width: 44px;
+            height: 44px;
+            background-color: var(--stone-color); 
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: inset -4px -4px 8px rgba(0,0,0,0.2), 3px 3px 8px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            animation: stonePulse 4s infinite ease-in-out;
+        }
+
+        @keyframes stonePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); filter: brightness(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .stone:hover {
+            transform: scale(1.15) translateY(-4px) !important;
+            z-index: 5;
+            box-shadow: 0 10px 20px rgba(255, 159, 67, 0.4);
+        }
+
+        .stone.disabled { cursor: default; }
+        .stone.disabled:hover { transform: none !important; box-shadow: inset -4px -4px 8px rgba(0,0,0,0.2), 3px 3px 8px rgba(0,0,0,0.1); }
+
+        .stone.selected {
+            background-color: var(--stone-selected) !important;
+            transform: scale(0.9);
+            animation: none;
+        }
+        .stone.selected::after {
+            content: '✓'; color: white; font-size: 20px; font-weight: bold;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+
+        .stone.removing { transform: scale(0) rotate(180deg); opacity: 0; }
+
+        /* BİLGİ PANELLERİ */
+        #stone-counter {
+            background: #f1f2f6; color: #57606f; padding: 6px 15px;
+            border-radius: 10px; font-weight: 600; font-size: 0.85rem;
+            display: inline-block; margin-bottom: 10px; border: 1px solid #ced6e0;
+        }
+
+        #status-bar {
+            padding: 12px; border-radius: 12px; font-weight: 700; font-size: 1.1rem;
+            color: white; background: #2ed573;
+            box-shadow: 0 8px 15px rgba(46, 213, 115, 0.25);
+            transition: all 0.3s;
+        }
+        .status-ai { background: #ff4757 !important; animation: shake 0.4s; }
+        .status-win { background: #ffa502 !important; font-size: 1.2rem; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        /* SKOR KUTUSU - DİNAMİK RENK */
+        .score-box {
+            position: absolute; top: 25px; right: 25px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 15px;
+            border-radius: 12px; font-size: 0.8rem; font-weight: 700;
+            backdrop-filter: blur(5px);
+            color: #555;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            z-index: 20;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .score-num {
+            background: var(--primary-gradient);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            font-size: 1rem;
+            display: inline-block;
+        }
+
+        .rule-hint { font-size: 0.75rem; color: #a4b0be; margin-top: 15px; }
+
+        /* BİLGİ BUTONLARI */
+        .info-buttons-container {
+            display: flex; flex-direction: row; gap: 10px; margin-top: 20px;
+            align-items: center; justify-content: center; flex-wrap: wrap;
+        }
+
+        .theory-btn {
+            background: transparent; border: 1px solid #dcdde1; color: #7f8c8d;
+            font-size: 0.75rem; padding: 10px 20px; min-width: 180px;
+            border-radius: 20px; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+        }
+        .theory-btn:hover { background: #f5f6fa; color: #2f3640; border-color: #7f8c8d; }
+
+        /* MODAL STİLİ */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); z-index: 100; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px); animation: fadeIn 0.3s;
+        }
+        .modal-box {
+            background: white; padding: 30px; border-radius: 20px; max-width: 500px; width: 90%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: left; position: relative;
+            animation: slideUp 0.3s;
+        }
+        .modal-header { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+        .modal-content { font-size: 0.9rem; color: #555; line-height: 1.6; }
+        .close-modal { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: #aaa; }
+        .close-modal:hover { color: #e74c3c; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-card">
+        <div class="score-box" id="score">SKOR | SEN: <span class="score-num">0</span> - AI: <span class="score-num">0</span></div>
+        
+        <h1>Nim Oyunu</h1>
+
+        <div class="controls-area">
+            <div class="control-group">
+                <span class="control-label">Mod</span>
+                <select id="game-mode" onchange="handleModeChange()">
+                    <option value="pvc">İnsan vs Yapay Zeka</option>
+                    <option value="pvp">İnsan vs İnsan</option>
+                    <option value="cvc">Yapay Zeka vs Yapay Zeka</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Zorluk</span>
+                <select id="difficulty">
+                    <option value="hard">Zor</option>
+                    <option value="easy">Kolay</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Yapılandırma</span>
+                <select id="heap-config" onchange="toggleCustomInput()">
+                    <option value="classic">🏛️ Klasik (Dengeli)</option>
+                    <option value="random">🎲 Rastgele</option>
+                    <option value="custom">⚙️ Özel Giriş...</option>
+                </select>
+            </div>
+            <div id="custom-input-group" class="control-group" style="display: none;">
+                <span class="control-label">Sayılar (Örn: 3,5,7)</span>
+                <input type="text" id="custom-heap-input" placeholder="3, 5, 7" value="3, 5, 7" style="width: 100px;">
+            </div>
+            <div class="control-group">
+                <span class="control-label">&nbsp;</span>
+                <button class="btn-primary" onclick="nextRound()">🔄 Yeni Oyun</button>
+            </div>
+        </div>
+
+        <div id="game-board"></div>
+
+        <div id="confirm-area" style="height: 50px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+            <button id="confirm-btn" class="btn-primary" style="display: none; background: #2ed573;" onclick="humanMoveConfirm()">✅ HAMLEYİ ONAYLA</button>
+        </div>
+
+        <div id="stone-counter">📦 Kalan Toplam Taş: 0</div>
+        <div id="status-bar">Hazırsan Başla!</div>
+        
+        <div class="rule-hint">⚠️ Kural: Her hamlede seçilen sıradan <strong>En Fazla 3 Taş</strong> alınabilir.</div>
+
+        <div class="info-buttons-container">
+            <button class="theory-btn" onclick="openTheoryModal()">ℹ️ Algoritmik Analiz Nasıl Çalışır?</button>
+            <button class="theory-btn" onclick="openRulesModal()">📖 Oyun Nasıl Oynanır?</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="theoryModal">
+        <div class="modal-box">
+            <span class="close-modal" onclick="closeTheoryModal()">&times;</span>
+            <div class="modal-header">Algoritmik Analiz Nasıl Çalışır?</div>
+            <div class="modal-content">
+                <p>Bu proje, <strong>Kombinatoryal Oyun Teorisi</strong> ve <strong>Nim</strong> varyasyonları üzerine kuruludur.</p>
+                <p><strong>📌 KISITLAMA ANALİZİ (MODÜLER ARİTMETİK):</strong><br>
+                Standart Nim'den farklı olarak, bu oyunda <strong>"Max 3 Taş"</strong> kısıtlaması vardır. Bu durumda oyun, standart XOR toplamı yerine <strong>Grundy Sayıları (Nim-Values)</strong> ile analiz edilir.</p>
+                <p><strong>🧠 YAPAY ZEKA MANTIĞI:</strong><br>
+                Bir yığının boyutu <em>h</em> ve maksimum hamle <em>k=3</em> ise, o yığının değeri <strong>h mod (k+1)</strong> yani <strong>h mod 4</strong>'tür.</p>
+                <ul>
+                    <li>AI, tüm yığınların (h mod 4) değerlerinin XOR toplamını hesaplar.</li>
+                    <li>Eğer sonuç 0 değilse, AI bu toplamı 0 yapacak optimal hamleyi bulur.</li>
+                </ul>
+                <p style="font-size:0.8rem; color:#999;">💻 İPUCU: F12 Konsol ekranında anlık matematiksel durumu görebilirsiniz.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rulesModal">
+        <div class="modal-box">
+            <span class="close-modal" onclick="closeRulesModal()">&times;</span>
+            <div class="modal-header">Oyun Nasıl Oynanır?</div>
+            <div class="modal-content">
+                <p><strong>🎯 Amaç:</strong> Masadaki <strong>son taşı</strong> alan oyuncu oyunu kazanır.</p>
+                <ul>
+                    <li>Sırası gelen oyuncu, <strong>tek bir sıradan</strong> taş seçer.</li>
+                    <li>Seçilen sıradan <strong>en az 1, en fazla 3</strong> taş alınabilir.</li>
+                    <li>Hamleni yapmak için taşları seçip <strong>"ONAYLA"</strong> butonuna basmalısın.</li>
+                </ul>
+                <p><strong>💡 İpucu:</strong> Rakibini son taşı almaya zorlayacak hamleler yap!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // OYUN DEĞİŞKENLERİ
+        let heaps = []; 
+        let currentPlayer = 1; 
+        let gameEnded = false;
+        let scores = {p1: 0, p2: 0};
+        let selectedRowIndex = -1;
+        let selectedCount = 0;
+        
+        // KİM BAŞLAYACAK TAKİBİ
+        let roundStarter = 1; // 1: P1 başlar, 2: P2 başlar
+
+        const MAX_MOVE = 3; 
+
+        const boardEl = document.getElementById('game-board');
+        const statusEl = document.getElementById('status-bar');
+        const counterEl = document.getElementById('stone-counter');
+        const confirmBtn = document.getElementById('confirm-btn');
+        const modeSelect = document.getElementById('game-mode');
+        
+        const theoryModal = document.getElementById('theoryModal');
+        const rulesModal = document.getElementById('rulesModal');
+
+        // MODAL İŞLEMLERİ
+        function openTheoryModal() { theoryModal.style.display = 'flex'; }
+        function closeTheoryModal() { theoryModal.style.display = 'none'; }
+        function openRulesModal() { rulesModal.style.display = 'flex'; }
+        function closeRulesModal() { rulesModal.style.display = 'none'; }
+        window.onclick = function(event) { 
+            if (event.target == theoryModal) closeTheoryModal();
+            if (event.target == rulesModal) closeRulesModal();
+        }
+
+        function toggleCustomInput() {
+            const val = document.getElementById('heap-config').value;
+            document.getElementById('custom-input-group').style.display = (val === 'custom') ? 'flex' : 'none';
+        }
+
+        function updateScoreLabels() {
+            const mode = modeSelect.value;
+            let label1 = "SEN";
+            let label2 = "AI";
+
+            if (mode === 'cvc') { label1 = "AI-1"; label2 = "AI-2"; } 
+            else if (mode === 'pvp') { label1 = "P1"; label2 = "P2"; }
+
+            document.getElementById('score').innerHTML = `SKOR | ${label1}: <span class="score-num">${scores.p1}</span> - ${label2}: <span class="score-num">${scores.p2}</span>`;
+        }
+
+        // --- MOD DEĞİŞİNCE SKOR SIFIRLA ---
+        function handleModeChange() {
+            scores = {p1: 0, p2: 0}; 
+            roundStarter = 1;        
+            restartGame();           
+        }
+
+        // --- SONRAKİ TURA GEÇ (SIRALI BAŞLANGIÇ) ---
+        function nextRound() {
+            roundStarter = (roundStarter === 1) ? 2 : 1;
+            restartGame();
+        }
+
+        function restartGame() {
+            const config = document.getElementById('heap-config').value;
+            if (config === 'classic') {
+                // Rastgele avantajlı dizilim seçimi (Denge için)
+                heaps = Math.random() > 0.5 ? [1, 3, 5, 8] : [1, 3, 5, 7];
+            }
+            else if (config === 'random') {
+                heaps = Array.from({length: Math.floor(Math.random()*3)+3}, () => Math.floor(Math.random()*9)+1);
+            } else {
+                const input = document.getElementById('custom-heap-input').value;
+                heaps = input.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+                if(heaps.length === 0) heaps = [1, 3, 5, 7];
+            }
+
+            // --- Başlayan oyuncuyu ayarla ---
+            currentPlayer = roundStarter;
+
+            gameEnded = false;
+            resetSelection();
+            renderBoard();
+            updateScoreLabels();
+            processTurn();
+        }
+
+        function processTurn() {
+            updateCounter();
+            console.log(`[TUR] Yığınlar: [${heaps}] | Başlayan: P${roundStarter} | Sıra: P${currentPlayer}`);
+
+            if (checkWin()) {
+                const winner = currentPlayer === 1 ? 2 : 1; // Son hamleyi yapan kazanır mantığı ters
+                if(winner === 1) scores.p1++; else scores.p2++;
+                
+                updateScoreLabels();
+
+                let msg = "";
+                const mode = modeSelect.value;
+                if(mode === 'pvc') msg = (winner === 1) ? "🎉 TEBRİKLER! SEN KAZANDIN!" : "🤖 YAPAY ZEKA KAZANDI!";
+                else if(mode === 'cvc') msg = `${winner === 1 ? "🤖 AI-1" : "🤖 AI-2"} KAZANDI!`;
+                else msg = `${winner === 1 ? "1. OYUNCU" : "2. OYUNCU"} KAZANDI!`;
+
+                endGame(msg);
+                return;
+            }
+
+            const mode = modeSelect.value;
+            statusEl.classList.remove('status-ai', 'status-win');
+
+            let isAi = false;
+            if (mode === 'pvc' && currentPlayer === 2) isAi = true;
+            if (mode === 'cvc') isAi = true; // CvC modunda her ikisi de AI
+
+            if (isAi) {
+                const pName = (mode === 'cvc') ? (currentPlayer === 1 ? "AI-1" : "AI-2") : "Yapay Zeka";
+                statusEl.innerText = `🤖 ${pName} Oynuyor...`;
+                statusEl.classList.add('status-ai');
+                setTimeout(makeAiMove, 800);
+            } else {
+                statusEl.innerText = (mode === 'pvp') ? `Sıra: ${currentPlayer}. Oyuncu` : "Sıra Sende! Hamleni Yap.";
+            }
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            heaps.forEach((count, rowIndex) => {
+                const row = document.createElement('div');
+                row.className = 'heap-row' + (rowIndex === selectedRowIndex ? ' active-row' : '');
+                for (let i = 0; i < count; i++) {
+                    const stone = document.createElement('div');
+                    stone.className = 'stone';
+                    const canTake = count - i;
+                    
+                    if (canTake > MAX_MOVE) {
+                        stone.classList.add('disabled');
+                    } else {
+                        if (rowIndex === selectedRowIndex && i >= (count - selectedCount)) {
+                            stone.classList.add('selected');
+                        }
+                        stone.onclick = () => {
+                            selectedRowIndex = rowIndex;
+                            selectedCount = canTake;
+                            confirmBtn.style.display = 'inline-block';
+                            confirmBtn.innerText = `✅ ONAYLA (${canTake} Taş)`;
+                            renderBoard();
+                        };
+                    }
+                    row.appendChild(stone);
+                }
+                boardEl.appendChild(row);
+            });
+        }
+
+        function humanMoveConfirm() {
+            const rowStones = boardEl.children[selectedRowIndex].querySelectorAll('.stone.selected');
+            rowStones.forEach(s => s.classList.add('removing'));
+            
+            setTimeout(() => {
+                heaps[selectedRowIndex] -= selectedCount;
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                resetSelection();
+                renderBoard();
+                processTurn();
+            }, 300);
+        }
+
+        // YAPAY ZEKA ALGORİTMASI
+        function makeAiMove() {
+            if (gameEnded) return;
+            let moveRow = -1, moveAmt = 0;
+            const diff = document.getElementById('difficulty').value;
+
+            if (diff === 'hard') {
+                let nimSum = 0;
+                for (let h of heaps) nimSum ^= (h % (MAX_MOVE + 1));
+
+                for (let i = 0; i < heaps.length; i++) {
+                    const currentHeap = heaps[i];
+                    const limit = Math.min(currentHeap, MAX_MOVE);
+                    
+                    for (let amt = 1; amt <= limit; amt++) {
+                        const remaining = currentHeap - amt;
+                        const currentMod = currentHeap % (MAX_MOVE + 1);
+                        const nextMod = remaining % (MAX_MOVE + 1);
+                        
+                        if ((nimSum ^ currentMod ^ nextMod) === 0) {
+                            moveRow = i; 
+                            moveAmt = amt; 
+                            break;
+                        }
+                    }
+                    if (moveRow !== -1) break;
+                }
+            }
+            
+            if (moveRow === -1) {
+                const validRows = heaps.map((h, i) => h > 0 ? i : -1).filter(i => i !== -1);
+                if(validRows.length > 0) {
+                    moveRow = validRows[Math.floor(Math.random() * validRows.length)];
+                    moveAmt = Math.floor(Math.random() * Math.min(heaps[moveRow], MAX_MOVE)) + 1;
+                }
+            }
+
+            if (moveRow !== -1) {
+                heaps[moveRow] -= moveAmt;
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                renderBoard();
+                processTurn();
+            }
+        }
+
+        function resetSelection() { selectedRowIndex = -1; selectedCount = 0; confirmBtn.style.display = 'none'; }
+        function updateCounter() { counterEl.innerText = `📦 Kalan Toplam Taş: ${heaps.reduce((a, b) => a + b, 0)}`; }
+        function checkWin() { return heaps.reduce((a, b) => a + b, 0) === 0; }
+        
+        function endGame(msg) { 
+            gameEnded = true; 
+            statusEl.innerText = msg; 
+            statusEl.classList.add('status-win');
+            playWinSound(); // ZAFER SESİ
+            createConfetti();
+        }
+
+        // --- SES EFEKTLERİ ---
+        function playWinSound() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            let time = ctx.currentTime;
+
+            notes.forEach((freq, index) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(time);
+                osc.stop(time + 0.5);
+                time += 0.15;
+            });
+        }
+
+        // KONFETİ EFEKTİ (N-İ-M Harfleri)
+        function createConfetti() {
+            const letters = ['N', 'İ', 'M'];
+            for(let i=0; i<60; i++) {
+                const conf = document.createElement('div');
+                conf.style.position = 'fixed';
+                conf.style.left = Math.random()*100 + 'vw';
+                conf.style.top = '-10px';
+                conf.style.zIndex = '9999';
+                conf.style.pointerEvents = 'none';
+                
+                // %50 ihtimalle Harf, %50 ihtimalle Kare
+                if (Math.random() > 0.5) {
+                    conf.innerText = letters[Math.floor(Math.random() * letters.length)];
+                    conf.style.fontSize = (Math.random() * 20 + 15) + "px";
+                    conf.style.color = ['#ff9f43', '#ee5253', '#2ed573', '#2980b9', '#ffffff'][Math.floor(Math.random()*5)];
+                    conf.style.fontWeight = "900";
+                    conf.style.textShadow = "1px 1px 2px rgba(0,0,0,0.3)";
+                } else {
+                    conf.style.width = '10px';
+                    conf.style.height = '10px';
+                    conf.style.background = ['#ff9f43', '#ee5253', '#2ed573', '#2980b9'][Math.floor(Math.random()*4)];
+                    conf.style.borderRadius = '2px';
+                }
+
+                conf.style.animation = `fall ${Math.random()*2+2}s linear forwards`;
+                document.body.appendChild(conf);
+                setTimeout(() => { conf.remove(); }, 4000);
+            }
+            if (!document.getElementById('confetti-style')) {
+                const style = document.createElement('style');
+                style.id = 'confetti-style';
+                style.innerHTML = `@keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }`;
+                document.head.appendChild(style);
+            }
+        }
+
+        // Başlat
+        toggleCustomInput();
+        restartGame();
+    </script>
+</body>
+</html>
